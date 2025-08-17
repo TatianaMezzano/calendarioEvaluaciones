@@ -49,35 +49,39 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${nombreDiaCap} ${dia} de ${mes}`;
     }
 
-    function dibujarDias() {
-        calendarDays.innerHTML = "";
-        const jsMonth = currentMonth + 7;
-        const firstDay = firstDayOfMonth(jsMonth, year);
-        const totalDays = daysInMonth(jsMonth, year);
-        const mesActualKey = `${year}-${String(jsMonth + 1).padStart(2, '0')}`;
+function dibujarDias() {
+    calendarDays.innerHTML = "";
 
-        for (let i = 0; i < firstDay; i++) {
+    const baseMonth = 7;
+    const jsMonth = baseMonth + currentMonth;
+
+    const firstDay = firstDayOfMonth(jsMonth, year);
+    const totalDays = daysInMonth(jsMonth, year);
+    const mesActualKey = `${year}-${String(jsMonth + 1).padStart(2, '0')}`;
+
+    for (let i = 0; i < firstDay; i++) {
         const emptyCell = document.createElement("div");
         calendarDays.appendChild(emptyCell);
-        }
+    }
 
-        for (let day = 1; day <= totalDays; day++) {
+    for (let day = 1; day <= totalDays; day++) {
         const dayCell = document.createElement("div");
         dayCell.textContent = day;
 
-        if (enabledDates[mesActualKey] && enabledDates[mesActualKey].includes(day)) {
+        if (enabledDates[mesActualKey] && enabledDates[mesActualKey].includes(Number(day)) && (day !== 19)) {
             dayCell.classList.add("enabled-days");
             dayCell.style.cursor = "pointer";
             dayCell.addEventListener("click", () => {
-            seleccionarDia(year, jsMonth, day);
+                seleccionarDia(year, jsMonth, day);
             });
         } else {
             dayCell.classList.add("not-enabled-days");
         }
 
         calendarDays.appendChild(dayCell);
-        }
     }
+}
+
 
     function seleccionarDia(year, month, day) {
         fechaSeleccionada.year = year;
@@ -317,16 +321,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const nivelPermisoIntegrante = data.nivel_permisos;
         return nivelPermisoIntegrante;
     }
-
-    let cupoUsuarioTipo = 0;
-
-    function abrirModalEdicion(grupoID) {
-    
-        const modal = document.getElementById('modalEdicionGrupo');
-        modal.style.display = 'block';
-
-    }
-
 
     function mostrarModalSoloOk(mensaje) {
         modalMensaje.textContent = mensaje;
@@ -714,8 +708,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
             if (nivelPermiso === 1) {
-
-                // Generar el ícono con un atributo data para guardar el ID
+                
                 botonOIconoHTML = `
                     <img 
                         src="/imgs/editar.png" 
@@ -750,84 +743,117 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 </div>`;
         }
+document.addEventListener("click", async function (e) {
+    if (e.target.classList.contains("icono-editar")) {
+        const grupoId = e.target.dataset.grupoId;
 
-        document.addEventListener("click", async function (e) {
-            if (e.target.classList.contains("icono-editar")) {
-                const grupoId = e.target.dataset.grupoId;
-                document.getElementById("modalConfirmarEdicionBtn").dataset.grupoId = grupoId; // Guardamos grupo en el botón
+        // 1️⃣ Obtener los IDs de los integrantes en este grupo
+        const { data: inscripciones, error: e1 } = await supabase
+            .from('inscripciones')
+            .select('integranteID')
+            .eq('grupoID', grupoId);
 
-                // Obtener integrantes desde Supabase
-                const { data: inscriptos, error } = await supabase
-                    .from("inscripciones")
-                    .select("integrantes (ci, nombre)")
-                    .eq("grupoID", grupoId);
+        if (e1) {
+            console.error("Error al obtener inscripciones:", e1);
+            return;
+        }
 
-                if (error) {
-                    console.error("Error al obtener integrantes:", error);
-                    return;
-                }
+        // 2️⃣ Obtener los datos de los integrantes desde la tabla integrantes
+        const ids = inscripciones.map(i => i.integranteID);
+        let inscriptos = [];
+        if (ids.length > 0) {
+            const { data: integrantesData, error: e2 } = await supabase
+                .from('integrantes')
+                .select('ci, nombre')
+                .in('ci', ids);
 
-                // Crear lista con checkboxes
-                let integrantesHTML = "";
-                if (inscriptos && inscriptos.length > 0) {
-                    integrantesHTML = `
-                        <ul style="list-style: none; padding-left: 0;">
-                            ${inscriptos.map(row => `
-                                <li class="form-check">
-                                    <input 
-                                        class="form-check-input" 
-                                        type="checkbox" 
-                                        value="${row.integrantes.ci}" 
-                                        id="chk-${row.integrantes.ci}">
-                                    <label class="form-check-label" for="chk-${row.integrantes.ci}">
-                                        ${row.integrantes.nombre}
-                                    </label>
-                                </li>
-                            `).join("")}
-                        </ul>
-                    `;
-                } else {
-                    integrantesHTML = "<p>Todavía no hay integrantes en este grupo</p>";
-                }
-
-                document.querySelector("#modalEdicionGrupo .modal-body").innerHTML = integrantesHTML;
-
-                // Mostrar modal
-                const modal = new bootstrap.Modal(document.getElementById("modalEdicionGrupo"));
-                modal.show();
+            if (e2) {
+                console.error("Error al obtener datos de integrantes:", e2);
+                return;
             }
-        });
+            inscriptos = integrantesData;
+        }
 
-        document.getElementById("modalConfirmarEdicionBtn").addEventListener("click", async function () {
-            const grupoId = this.dataset.grupoId;
+        // Preparar contenido del modal
+        let integrantesHTML = "";
+        let footerHTML = "";
 
-            // Obtener checkboxes seleccionados
-            const seleccionados = document.querySelectorAll("#modalEdicionGrupo .form-check-input:checked");
+        if (inscriptos.length > 0) {
+            // Lista de integrantes con checkboxes
+            integrantesHTML = `
+                <ul style="list-style: none; padding-left: 0;">
+                    ${inscriptos.map(row => `
+                        <li class="form-check">
+                            <input 
+                                class="form-check-input" 
+                                type="checkbox" 
+                                value="${row.ci}" 
+                                id="chk-${row.ci}">
+                            <label class="form-check-label" for="chk-${row.ci}">
+                                ${row.nombre}
+                            </label>
+                        </li>
+                    `).join("")}
+                </ul>
+            `;
 
-            for (let checkbox of seleccionados) {
-                const ci = checkbox.value;
+            // Footer con botón Guardar
+            footerHTML = `
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="modalConfirmarEdicionBtn" class="btn btn-primary" data-grupo-id="${grupoId}">
+                    Guardar cambios
+                </button>
+            `;
+        } else {
+            // Solo mensaje y botón OK
+            integrantesHTML = "<p>Todavía no hay integrantes en este grupo</p>";
+            footerHTML = `<button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>`;
+        }
 
-                // Eliminar en Supabase
-                const { error } = await supabase
-                    .from("inscripciones")
-                    .delete()
-                    .eq("grupoID", grupoId)
-                    .eq("integranteID", ci);
+        // Insertar contenido y footer en el modal
+        const modalBody = document.querySelector("#modalEdicionGrupo .modal-body");
+        const modalFooter = document.querySelector("#modalEdicionGrupo .modal-footer");
+        modalBody.innerHTML = integrantesHTML;
+        modalFooter.innerHTML = footerHTML;
 
-                if (error) {
-                    console.error(`Error eliminando ci ${ci} del grupo ${grupoId}:`, error);
-                } else {
-                    console.log(`Integrante ${ci} eliminado del grupo ${grupoId}`);
+        // Mostrar modal
+        const modalEl = document.getElementById("modalEdicionGrupo");
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+
+        // ⚡ Manejador del botón Guardar cambios
+        const btnGuardar = document.getElementById("modalConfirmarEdicionBtn");
+        if (btnGuardar) {
+            btnGuardar.addEventListener("click", async function () {
+                const grupoId = this.dataset.grupoId;
+
+                // Obtener checkboxes seleccionados
+                const seleccionados = Array.from(modalBody.querySelectorAll(".form-check-input:checked"))
+                    .map(chk => chk.value);
+
+                if (seleccionados.length > 0) {
+                    const { error: deleteError } = await supabase
+                        .from("inscripciones")
+                        .delete()
+                        .in("integranteID", seleccionados)
+                        .eq("grupoID", grupoId);
+
+                    if (deleteError) {
+                        console.error("Error eliminando integrantes:", deleteError);
+                    } else {
+                        console.log("Integrantes eliminados correctamente");
+                    }
                 }
-            }
 
-            // Cerrar modal
-            const modalInstance = bootstrap.Modal.getInstance(document.getElementById("modalEdicionGrupo"));
-            modalInstance.hide();
+                // Cerrar modal
+                modal.hide();
 
-            await actualizarIntegrantesGrupo(grupoId);
-        });
-
+                // Actualizar lista de integrantes en UI
+                await actualizarIntegrantesGrupo(grupoId);
+            }, { once: true }); // ⚡ evita duplicar listeners
+        }
+    }
+});
 
 
 
@@ -940,9 +966,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                     let horarioGrupo = horaInicio + " - " + horaFin;
                                     let grupoNombre = grupo.descripcion;
 
-                                    for (let itemMail in dirMails){
-                                        await enviarCorreo(dirMails[itemMail], grupoNombre, fechaGrupo, horarioGrupo);
-                                    }
+                                    // for (let itemMail in dirMails){
+                                    //     await enviarCorreo(dirMails[itemMail], grupoNombre, fechaGrupo, horarioGrupo);
+                                    // }
                                 }
 
                                 
