@@ -613,7 +613,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }else{
             // Icono excel
             const iconoExcel = document.getElementById('nombreOIExcel');
-            iconoExcel.innerHTML = `<img src="/imgs/excel.png" alt="Exportar a Excel" style="width:20px; height:20px;">`;
+            iconoExcel.innerHTML = `<img src="./imgs/excel.png" alt="Exportar a Excel" style="width:20px; height:20px;">`;
             iconoExcel.classList.add('icono-excel');
 
             iconoExcel.onclick = async () => {
@@ -712,7 +712,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 botonOIconoHTML = `
                     <img 
-                        src="/imgs/editar.png" 
+                        src="./imgs/editar.png" 
                         alt="Editar" 
                         class="icono-editar" 
                         data-grupo-id="${grupo.id}" 
