@@ -161,6 +161,10 @@ hr {
     margin: auto;
 }
 
+.links-iconos{
+    display: none;
+}
+
 .selected-day {
     background-color: #7fc75d !important;
 }

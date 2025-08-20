@@ -967,9 +967,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                     let horarioGrupo = horaInicio + " - " + horaFin;
                                     let grupoNombre = grupo.descripcion;
 
-                                    // for (let itemMail in dirMails){
-                                    //     await enviarCorreo(dirMails[itemMail], grupoNombre, fechaGrupo, horarioGrupo);
-                                    // }
+                                    for (let itemMail in dirMails){
+                                        await enviarCorreo(dirMails[itemMail], grupoNombre, fechaGrupo, horarioGrupo);
+                                    }
                                 }                     
 
                             }
