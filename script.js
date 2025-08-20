@@ -49,39 +49,38 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${nombreDiaCap} ${dia} de ${mes}`;
     }
 
-function dibujarDias() {
-    calendarDays.innerHTML = "";
+    function dibujarDias() {
+        calendarDays.innerHTML = "";
 
-    const baseMonth = 7;
-    const jsMonth = baseMonth + currentMonth;
+        const baseMonth = 7;
+        const jsMonth = baseMonth + currentMonth;
 
-    const firstDay = firstDayOfMonth(jsMonth, year);
-    const totalDays = daysInMonth(jsMonth, year);
-    const mesActualKey = `${year}-${String(jsMonth + 1).padStart(2, '0')}`;
+        const firstDay = firstDayOfMonth(jsMonth, year);
+        const totalDays = daysInMonth(jsMonth, year);
+        const mesActualKey = `${year}-${String(jsMonth + 1).padStart(2, '0')}`;
 
-    for (let i = 0; i < firstDay; i++) {
-        const emptyCell = document.createElement("div");
-        calendarDays.appendChild(emptyCell);
-    }
-
-    for (let day = 1; day <= totalDays; day++) {
-        const dayCell = document.createElement("div");
-        dayCell.textContent = day;
-
-        if (enabledDates[mesActualKey] && enabledDates[mesActualKey].includes(Number(day)) && (day !== 19)) {
-            dayCell.classList.add("enabled-days");
-            dayCell.style.cursor = "pointer";
-            dayCell.addEventListener("click", () => {
-                seleccionarDia(year, jsMonth, day);
-            });
-        } else {
-            dayCell.classList.add("not-enabled-days");
+        for (let i = 0; i < firstDay; i++) {
+            const emptyCell = document.createElement("div");
+            calendarDays.appendChild(emptyCell);
         }
 
-        calendarDays.appendChild(dayCell);
-    }
-}
+        for (let day = 1; day <= totalDays; day++) {
+            const dayCell = document.createElement("div");
+            dayCell.textContent = day;
 
+            if (enabledDates[mesActualKey] && enabledDates[mesActualKey].includes(Number(day)) && (day !== 19)) {
+                dayCell.classList.add("enabled-days");
+                dayCell.style.cursor = "pointer";
+                dayCell.addEventListener("click", () => {
+                    seleccionarDia(year, jsMonth, day);
+                });
+            } else {
+                dayCell.classList.add("not-enabled-days");
+            }
+
+            calendarDays.appendChild(dayCell);
+        }
+    }
 
     function seleccionarDia(year, month, day) {
         fechaSeleccionada.year = year;
@@ -159,11 +158,11 @@ function dibujarDias() {
         actualizarUI();
     }
 
-    async function obtenerCvpaUsuario() {
+    async function obtenerCvpaUsuario(usuarioCI) {
         const { data, error } = await supabase
         .from('integrantes')
         .select('cvpa, div3')
-        .eq('ci', usuarioActualCI)
+        .eq('ci', usuarioCI)
         .single();
 
         if (error) {
@@ -189,11 +188,11 @@ function dibujarDias() {
         return data.length;
     }
 
-    async function obtenerTipoUsuario() {
+    async function obtenerTipoUsuario(usuarioCI) {
         const { data, error } = await supabase
             .from('integrantes')
             .select('div3')
-            .eq('ci', usuarioActualCI)
+            .eq('ci', usuarioCI)
             .single();
 
         if (error) {
@@ -220,6 +219,8 @@ function dibujarDias() {
             default:
                 usuarioTipo = null;
         }
+
+        return usuarioTipo;
     }
 
     async function modificarCupoGrupoPorUsuarioTipo(grupoID, usuarioTipo) {
@@ -278,6 +279,7 @@ function dibujarDias() {
         if (errorUpdate) {
             console.error("Error al actualizar cupo:", errorUpdate);
         }
+ 
     }
 
     async function sumarCupos(grupoID){
@@ -377,27 +379,28 @@ function dibujarDias() {
     }
 
     async function actualizarEstadoBotones() {
-        const gruposAgendados = await contarGruposAgendados();
-        
-        const botones = document.querySelectorAll('.reserve');
+    const gruposAgendados = await contarGruposAgendados(usuarioActualCI);
+    const maxGruposPermitidos = await obtenerCvpaUsuario(usuarioActualCI);
 
-        botones.forEach(boton => {
-            const estaAgendado = boton.classList.contains('btn-success');
+    const botones = document.querySelectorAll('.reserve');
 
-            if (gruposAgendados === maxGruposPermitidos && !estaAgendado) {
-                boton.disabled = true;
-                boton.classList.remove('btn-outline-primary');
-                boton.classList.add('btn-secondary');
-            } else {
-                if (!estaAgendado) {
-                boton.disabled = false;
-                boton.classList.remove('btn-secondary');
-                boton.classList.add('btn-outline-primary');
-                boton.textContent = 'Agendarme';
-                }
-            }
-        });
-    }
+    botones.forEach(boton => {
+        const estaAgendado = boton.classList.contains('btn-success');
+
+        if (gruposAgendados >= maxGruposPermitidos && !estaAgendado) {
+            boton.disabled = true;
+            boton.classList.remove('btn-outline-primary');
+            boton.classList.add('btn-secondary'); // opcional, más claro
+        } else if (!estaAgendado) {
+            boton.disabled = false;
+            boton.classList.remove('btn-secondary');
+            boton.classList.add('btn-outline-primary');
+            boton.textContent = 'Agendarme';
+        }
+    });
+}
+
+
 
     async function actualizarIntegrantesGrupo(grupoId) {
         const { data: inscriptos, error } = await supabase
@@ -556,6 +559,7 @@ function dibujarDias() {
 
     let ci;
     let nivelPermiso;
+    let tipoUsuario;
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         ci = ciInput.value.trim();
@@ -592,11 +596,10 @@ function dibujarDias() {
         }
 
         usuarioActualCI = ci;
-
-        await obtenerTipoUsuario();
+        tipoUsuario = await obtenerTipoUsuario(usuarioActualCI); 
 
         nombreUsuario = data[0].nombre;
-        maxGruposPermitidos = await obtenerCvpaUsuario();
+        //maxGruposPermitidos = await obtenerCvpaUsuario();
 
         errorMsg.style.display = 'none';
         loginWrapper.style.display = 'none';
@@ -617,8 +620,6 @@ function dibujarDias() {
                 await exportarExcel();
             };
         }
-
-        
 
         await cargarFechasDesdeSupabase();
         actualizarUI();
@@ -743,120 +744,120 @@ function dibujarDias() {
                 </div>
                 </div>`;
         }
-document.addEventListener("click", async function (e) {
-    if (e.target.classList.contains("icono-editar")) {
-        const grupoId = e.target.dataset.grupoId;
 
-        // 1️⃣ Obtener los IDs de los integrantes en este grupo
-        const { data: inscripciones, error: e1 } = await supabase
-            .from('inscripciones')
-            .select('integranteID')
-            .eq('grupoID', grupoId);
+        document.addEventListener("click", async function (e) {
+            if (e.target.classList.contains("icono-editar")) {
+                const grupoId = e.target.dataset.grupoId;
 
-        if (e1) {
-            console.error("Error al obtener inscripciones:", e1);
-            return;
-        }
+                const { data: inscripciones, error: e1 } = await supabase
+                    .from('inscripciones')
+                    .select('integranteID')
+                    .eq('grupoID', grupoId);
 
-        // 2️⃣ Obtener los datos de los integrantes desde la tabla integrantes
-        const ids = inscripciones.map(i => i.integranteID);
-        let inscriptos = [];
-        if (ids.length > 0) {
-            const { data: integrantesData, error: e2 } = await supabase
-                .from('integrantes')
-                .select('ci, nombre')
-                .in('ci', ids);
-
-            if (e2) {
-                console.error("Error al obtener datos de integrantes:", e2);
-                return;
-            }
-            inscriptos = integrantesData;
-        }
-
-        // Preparar contenido del modal
-        let integrantesHTML = "";
-        let footerHTML = "";
-
-        if (inscriptos.length > 0) {
-            // Lista de integrantes con checkboxes
-            integrantesHTML = `
-                <ul style="list-style: none; padding-left: 0;">
-                    ${inscriptos.map(row => `
-                        <li class="form-check">
-                            <input 
-                                class="form-check-input" 
-                                type="checkbox" 
-                                value="${row.ci}" 
-                                id="chk-${row.ci}">
-                            <label class="form-check-label" for="chk-${row.ci}">
-                                ${row.nombre}
-                            </label>
-                        </li>
-                    `).join("")}
-                </ul>
-            `;
-
-            // Footer con botón Guardar
-            footerHTML = `
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" id="modalConfirmarEdicionBtn" class="btn btn-primary" data-grupo-id="${grupoId}">
-                    Guardar cambios
-                </button>
-            `;
-        } else {
-            // Solo mensaje y botón OK
-            integrantesHTML = "<p>Todavía no hay integrantes en este grupo</p>";
-            footerHTML = `<button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>`;
-        }
-
-        // Insertar contenido y footer en el modal
-        const modalBody = document.querySelector("#modalEdicionGrupo .modal-body");
-        const modalFooter = document.querySelector("#modalEdicionGrupo .modal-footer");
-        modalBody.innerHTML = integrantesHTML;
-        modalFooter.innerHTML = footerHTML;
-
-        // Mostrar modal
-        const modalEl = document.getElementById("modalEdicionGrupo");
-        const modal = new bootstrap.Modal(modalEl);
-        modal.show();
-
-        // ⚡ Manejador del botón Guardar cambios
-        const btnGuardar = document.getElementById("modalConfirmarEdicionBtn");
-        if (btnGuardar) {
-            btnGuardar.addEventListener("click", async function () {
-                const grupoId = this.dataset.grupoId;
-
-                // Obtener checkboxes seleccionados
-                const seleccionados = Array.from(modalBody.querySelectorAll(".form-check-input:checked"))
-                    .map(chk => chk.value);
-
-                if (seleccionados.length > 0) {
-                    const { error: deleteError } = await supabase
-                        .from("inscripciones")
-                        .delete()
-                        .in("integranteID", seleccionados)
-                        .eq("grupoID", grupoId);
-
-                    if (deleteError) {
-                        console.error("Error eliminando integrantes:", deleteError);
-                    } else {
-                        console.log("Integrantes eliminados correctamente");
-                    }
+                if (e1) {
+                    console.error("Error al obtener inscripciones:", e1);
+                    return;
                 }
 
-                // Cerrar modal
-                modal.hide();
+                const ids = inscripciones.map(i => i.integranteID);
+                let inscriptos = [];
+                if (ids.length > 0) {
+                    const { data: integrantesData, error: e2 } = await supabase
+                        .from('integrantes')
+                        .select('ci, nombre')
+                        .in('ci', ids);
 
-                // Actualizar lista de integrantes en UI
-                await actualizarIntegrantesGrupo(grupoId);
-            }, { once: true }); // ⚡ evita duplicar listeners
-        }
-    }
-});
+                    if (e2) {
+                        console.error("Error al obtener datos de integrantes:", e2);
+                        return;
+                    }
+                    inscriptos = integrantesData;
+                }
+
+                let integrantesHTML = "";
+                let footerHTML = "";
+
+                if (inscriptos.length > 0) {
+                    // Lista de integrantes con checkboxes
+                    integrantesHTML = `
+                        <ul style="list-style: none; padding-left: 0;">
+                            ${inscriptos.map(row => `
+                                <li class="form-check">
+                                    <input 
+                                        class="form-check-input" 
+                                        type="checkbox" 
+                                        value="${row.ci}" 
+                                        id="chk-${row.ci}">
+                                    <label class="form-check-label" for="chk-${row.ci}">
+                                        ${row.nombre}
+                                    </label>
+                                </li>
+                            `).join("")}
+                        </ul>
+                    `;
+
+                    footerHTML = `
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" id="modalConfirmarEdicionBtn" class="btn btn-primary" data-grupo-id="${grupoId}">
+                            Eliminar inscripciones
+                        </button>
+                    `;
+                } else {
+                    integrantesHTML = "<p>Todavía no hay integrantes en este grupo</p>";
+                    footerHTML = `<button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>`;
+                }
+
+                const modalBody = document.querySelector("#modalEdicionGrupo .modal-body");
+                const modalFooter = document.querySelector("#modalEdicionGrupo .modal-footer");
+                modalBody.innerHTML = integrantesHTML;
+                modalFooter.innerHTML = footerHTML;
+
+                // Mostrar modal
+                const modalEl = document.getElementById("modalEdicionGrupo");
+                const modal = new bootstrap.Modal(modalEl);
+                modal.show();
 
 
+                const btnGuardar = document.getElementById("modalConfirmarEdicionBtn");
+                if (btnGuardar) {
+                    btnGuardar.addEventListener("click", async function () {
+                        const grupoId = this.dataset.grupoId;
 
+                        // Obtener checkboxes seleccionados
+                        const seleccionados = Array.from(modalBody.querySelectorAll(".form-check-input:checked"))
+                            .map(chk => chk.value);
+
+                        if (seleccionados.length > 0) {
+                            // Eliminar inscripciones
+                            const { error: deleteError } = await supabase
+                                .from("inscripciones")
+                                .delete()
+                                .in("integranteID", seleccionados)
+                                .eq("grupoID", grupoId);
+
+                            if (deleteError) {
+                                console.error("Error eliminando integrantes:", deleteError);
+                            } else {
+                                console.log("Integrantes eliminados correctamente");
+                            }
+                        }
+                        let tipoUsuarioParaEliminar;
+                                        
+                        for (let i = 0; i < seleccionados.length; i++) {
+                            tipoUsuarioParaEliminar = await obtenerTipoUsuario(seleccionados[i]);
+                            // Actualizar cupo del grupo según usuarioTipo
+                            await modificarCupoGrupoPorUsuarioTipo(grupoId, tipoUsuarioParaEliminar);
+                        }
+
+                        // Cerrar modal
+                        modal.hide();
+
+                        // Actualizar lista de integrantes en UI
+                        await actualizarIntegrantesGrupo(grupoId);
+                    }, { once: true }); // evita duplicar listeners
+                }
+            }
+        });
 
         contenedor.querySelectorAll('.reserve').forEach(boton => {
             boton.addEventListener('click', async function () {
@@ -969,9 +970,7 @@ document.addEventListener("click", async function (e) {
                                     // for (let itemMail in dirMails){
                                     //     await enviarCorreo(dirMails[itemMail], grupoNombre, fechaGrupo, horarioGrupo);
                                     // }
-                                }
-
-                                
+                                }                     
 
                             }
 
@@ -996,15 +995,15 @@ document.addEventListener("click", async function (e) {
                             modal.hide();
                             await actualizarEstadoBotones();
                         });
-
                         
-                    }                 
-
+                    }                
 
                 }
 
             }); 
         }); 
+        // 5️⃣ Una vez cargados todos los grupos, actualizar estado de los botones según cvpa
+await actualizarEstadoBotones();
 
     }
 });
