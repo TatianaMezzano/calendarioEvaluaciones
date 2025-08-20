@@ -508,7 +508,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .select("id")
             .order("id", { ascending: true });
 
-        const response = await fetch("./xls/CuadernoEvaluacionesCNNS2025.xlsx");
+        const response = await fetch("xls/CuadernoEvaluacionesCNNS2025.xlsx");
         const arrayBuffer = await response.arrayBuffer();
         const workbook = await XlsxPopulate.fromDataAsync(arrayBuffer);
         const sheet = workbook.sheet(0);
