@@ -1,7 +1,7 @@
 emailjs.init('2eMfdE1GQKr8lsBkC');
 
 document.addEventListener('DOMContentLoaded', () => {
-    const monthNames = ["Agosto", "Septiembre", "Octubre"];
+    const monthNames = ["Septiembre", "Octubre"];
     const year = 2025;
     let currentMonth = 0;
     const enabledDates = {};
@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function dibujarDias() {
         calendarDays.innerHTML = "";
 
-        const baseMonth = 7;
+        const baseMonth = 8;
         const jsMonth = baseMonth + currentMonth;
 
         const firstDay = firstDayOfMonth(jsMonth, year);
@@ -942,7 +942,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 const { data: grupo, error: errorGrupo } = await supabase
                                     .from('grupos')
                                     .select('descripcion, hora_inicio, hora_fin')
-                                    .eq('id', parseInt(grupoID))   // 👈 asumo que la PK en "grupos" es "id"
+                                    .eq('id', parseInt(grupoID))
                                     .single();
 
                                     const inicio = new Date(grupo.hora_inicio);
@@ -962,16 +962,21 @@ document.addEventListener('DOMContentLoaded', () => {
                                 if (errorGrupo) {
                                     console.error('Error al obtener horario del grupo:', errorGrupo);
                                 } else {
-                                    // Enviar mail
-                                    let dirMails =  await obtenerDirMailIntegrantes(grupoID);
+                                    let dirMails = await obtenerDirMailIntegrantes(grupoID);
                                     let horarioGrupo = horaInicio + " - " + horaFin;
                                     let grupoNombre = grupo.descripcion;
 
-                                    for (let itemMail in dirMails){
-                                        await enviarCorreo(dirMails[itemMail], grupoNombre, fechaGrupo, horarioGrupo);
+                                    try {
+                                        // Ejecutar todos los envíos en paralelo y esperar a que terminen
+                                        await Promise.all(
+                                            dirMails.map(email => enviarCorreo(email, grupoNombre, fechaGrupo, horarioGrupo))
+                                        );
+                                        console.log('Todos los mails enviados');
+                                    } catch (err) {
+                                        console.error('Error enviando mails:', err);
                                     }
-                                }                     
-
+                                }
+                  
                             }
 
                             // Actualizar UI
